@@ -60,9 +60,13 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	routeQuery := strings.ToLower(r.FormValue("search"))
 
 	for _, route := range routesInfo.Data.List {
-		id := strings.ToLower(route.ID)
+		id := route.ID
+		idLower := strings.ToLower(route.ID)
 
-		if strings.Contains(id, routeQuery) {
+		if strings.HasSuffix(idLower, routeQuery) {
+			// I want to display the _original_ ID in the
+			// HTML response; all the lowercasing is to
+			// facilitate the search itself.
 			results = append(results, id)
 		}
 	}
