@@ -59,6 +59,11 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	var results []string
 	routeQuery := strings.ToLower(r.FormValue("search"))
 
+	if routeQuery == "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	for _, route := range routesInfo.Data.List {
 		id := route.ID
 		idLower := strings.ToLower(route.ID)
