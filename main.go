@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -24,15 +26,23 @@ var searchResultsHTML = template.Must(template.New("results").Parse(`
 // For now, the agency we use is fixed.
 const routesForAgencyURL = "https://bustime.mta.info/api/where/routes-for-agency/MTA%20NYCT.json"
 
-func searchHandler(w http.ResponseWriter, r *http.Request) {
-	godotenv.Load(".env")
+type config struct {
+	apiKey string
+}
 
+func (cfg *config) init() error {
 	apiKey := os.Getenv("API_KEY")
 
 	if apiKey == "" {
-		http.Error(w, "Missing API key", http.StatusInternalServerError)
+		return errors.New("Missing API key")
 	}
 
+	cfg.apiKey = apiKey
+
+	return nil
+}
+
+func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) {
 	routeQuery := r.FormValue("search")
 
 	if routeQuery == "" {
@@ -46,7 +56,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonBytes, callErr := geturl.Call(routesForAgencyURL, map[string]string{
-		"key": apiKey,
+		"key": cfg.apiKey,
 	})
 
 	if callErr != nil {
@@ -107,7 +117,17 @@ func loadPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/search", searchHandler)
+	var cfg config
+
+	if err := cfg.init(); err != nil {
+		log.Fatal(err)
+	}
+
+	http.HandleFunc("/search", cfg.searchHandler)
 	http.HandleFunc("/", loadPage)
 	http.ListenAndServe(":8080", nil)
+}
+
+func init() {
+	godotenv.Load(".env")
 }
