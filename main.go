@@ -33,7 +33,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing API key", http.StatusInternalServerError)
 	}
 
-	routeQuery := strings.ToLower(r.FormValue("search"))
+	routeQuery := r.FormValue("search")
 
 	if routeQuery == "" {
 		w.WriteHeader(http.StatusOK)
@@ -66,14 +66,20 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	var results []string
 
 	for _, route := range routesInfo.Data.List {
-		id := route.ID
-		idLower := strings.ToLower(route.ID)
+		// FIXME: The agency prefix is hardcoded here. If we
+		// ever expand this to include subway, PATH, other
+		// kinds of buses etc., we would to change this.
+		baseID, found := strings.CutPrefix(route.ID, "MTA NYCT_")
 
-		if strings.HasSuffix(idLower, routeQuery) {
+		if !found {
+			http.Error(w, "Missing agency prefix: MTA NYCT_", http.StatusInternalServerError)
+		}
+
+		if strings.Contains(strings.ToLower(baseID), strings.ToLower(routeQuery)) {
 			// I want to display the _original_ ID in the
 			// HTML response; all the lowercasing is to
 			// facilitate the search itself.
-			results = append(results, id)
+			results = append(results, baseID)
 		}
 	}
 
