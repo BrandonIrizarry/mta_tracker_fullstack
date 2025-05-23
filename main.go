@@ -33,6 +33,13 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing API key", http.StatusInternalServerError)
 	}
 
+	routeQuery := strings.ToLower(r.FormValue("search"))
+
+	if routeQuery == "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Unable to parse form", http.StatusBadRequest)
 		return
@@ -57,12 +64,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var results []string
-	routeQuery := strings.ToLower(r.FormValue("search"))
-
-	if routeQuery == "" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
 
 	for _, route := range routesInfo.Data.List {
 		id := route.ID
