@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Contact Search</title>
+  <title>MTA Tracker</title>
   <!-- Include HTMX -->
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
   <style>
@@ -16,14 +16,14 @@
 </head>
 <body>
   <h3>
-    Search Contacts
+    Search Routes
     <span class="htmx-indicator">
-      <img src="/img/bars.svg" alt="Loading..."/> Searching...
+      <img src="./images/bars.svg" alt="Loading..."/> Searching...
     </span>
   </h3>
 
   <input class="form-control" type="search"
-         name="search" placeholder="Begin Typing To Search Users..."
+         name="search" placeholder="Search for routes to add"
          hx-post="/search"
          hx-trigger="input changed delay:500ms, keyup[key=='Enter'], load"
          hx-target="#search-results"
@@ -32,9 +32,7 @@
   <table class="table">
     <thead>
       <tr>
-        <th>First Name</th>
-        <th>Last Name</th>
-        <th>Email</th>
+        <th>Route name</th>
       </tr>
     </thead>
     <tbody id="search-results">
