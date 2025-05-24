@@ -10,9 +10,9 @@ import (
 	"os"
 	"strings"
 
-	"codeberg.org/bci/mta_tracker_fullstack/internal/apperr"
-	"codeberg.org/bci/mta_tracker_fullstack/internal/availableRoutes"
-	"codeberg.org/bci/mta_tracker_fullstack/internal/geturl"
+	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/apperr"
+	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/availableRoutes"
+	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/geturl"
 	"github.com/joho/godotenv"
 )
 
