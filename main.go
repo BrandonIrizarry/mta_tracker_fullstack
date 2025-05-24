@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -105,24 +104,6 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) {
 	if err := searchResultsHTML.Execute(w, results); err != nil {
 		http.Error(w, "Unable to render template", http.StatusInternalServerError)
 	}
-}
-
-func loadPage(w http.ResponseWriter, r *http.Request) {
-	indexHTML, err := os.Open("templates/index.html")
-
-	if err != nil {
-		http.Error(w, "Unable to read index.html template", http.StatusInternalServerError)
-	}
-
-	defer indexHTML.Close()
-
-	htmlBytes, err := io.ReadAll(indexHTML)
-
-	if err != nil {
-		http.Error(w, "Unable to convert index.html to bytes", http.StatusInternalServerError)
-	}
-
-	w.Write(htmlBytes)
 }
 
 func main() {
