@@ -28,6 +28,7 @@ const routesForAgencyURL = "https://bustime.mta.info/api/where/routes-for-agency
 
 type config struct {
 	apiKey string
+	port   string
 }
 
 func (cfg *config) init() error {
@@ -38,6 +39,14 @@ func (cfg *config) init() error {
 	}
 
 	cfg.apiKey = apiKey
+
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		return errors.New("Missing port configuration (PORT)")
+	}
+
+	cfg.port = port
 
 	return nil
 }
@@ -125,7 +134,7 @@ func main() {
 
 	http.HandleFunc("/search", cfg.searchHandler)
 	http.HandleFunc("/", loadPage)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":"+cfg.port, nil)
 }
 
 func init() {
