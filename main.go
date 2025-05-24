@@ -136,8 +136,8 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/search", cfg.searchHandler)
-	mux.HandleFunc("/", loadPage)
+	mux.HandleFunc("POST /search", cfg.searchHandler)
+	mux.HandleFunc("GET /", loadPage)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.port,
