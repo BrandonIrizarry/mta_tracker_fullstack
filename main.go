@@ -34,7 +34,7 @@ func (cfg *config) init() error {
 	apiKey := os.Getenv("API_KEY")
 
 	if apiKey == "" {
-		return errors.New("Missing API key")
+		return errors.New("Missing API key (API_KEY)")
 	}
 
 	cfg.apiKey = apiKey
