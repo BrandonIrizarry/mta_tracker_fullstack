@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+./mta_tracker_fullstack &
+echo $! > /tmp/mta_tracker_fullstack.pid
+
+
+
+

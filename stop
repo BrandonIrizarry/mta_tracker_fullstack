@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+kill $(cat /tmp/mta_tracker_fullstack.pid)
