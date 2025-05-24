@@ -126,17 +126,23 @@ func loadPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	godotenv.Load(".env")
+
 	var cfg config
 
 	if err := cfg.init(); err != nil {
 		log.Fatal(err)
 	}
 
-	http.HandleFunc("/search", cfg.searchHandler)
-	http.HandleFunc("/", loadPage)
-	http.ListenAndServe(":"+cfg.port, nil)
-}
+	mux := http.NewServeMux()
 
-func init() {
-	godotenv.Load(".env")
+	mux.HandleFunc("/search", cfg.searchHandler)
+	mux.HandleFunc("/", loadPage)
+
+	srv := &http.Server{
+		Addr:    ":" + cfg.port,
+		Handler: mux,
+	}
+
+	log.Fatal(srv.ListenAndServe())
 }
