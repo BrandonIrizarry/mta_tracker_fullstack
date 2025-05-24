@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 
+	"codeberg.org/bci/mta_tracker_fullstack/internal/apperr"
 	"codeberg.org/bci/mta_tracker_fullstack/internal/availableRoutes"
 	"codeberg.org/bci/mta_tracker_fullstack/internal/geturl"
 	"github.com/joho/godotenv"
@@ -50,17 +52,16 @@ func (cfg *config) init() error {
 	return nil
 }
 
-func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) *apperr.StatusError {
 	routeQuery := r.FormValue("search")
 
 	if routeQuery == "" {
 		w.WriteHeader(http.StatusOK)
-		return
+		return nil
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Unable to parse form", http.StatusBadRequest)
-		return
+		return apperr.ServeError(err, http.StatusInternalServerError)
 	}
 
 	jsonBytes, callErr := geturl.Call(routesForAgencyURL, map[string]string{
@@ -68,17 +69,18 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if callErr != nil {
-		http.Error(w, "Call to routes-for-agency URL failed", http.StatusInternalServerError)
+		return apperr.ServeError(callErr, http.StatusInternalServerError)
 	}
 
 	var routesInfo availableRoutes.AvailableRoutes
 
 	if err := json.Unmarshal(jsonBytes, &routesInfo); err != nil {
-		http.Error(w, "Failed to unmarshal JSON into routes-info struct", http.StatusInternalServerError)
+		return apperr.ServeError(err, http.StatusInternalServerError)
 	}
 
 	if code := routesInfo.Code; code != 200 {
-		http.Error(w, "Non-200 code", http.StatusInternalServerError)
+		codeErr := fmt.Errorf("Routes info reports non-200 code: %d", code)
+		return apperr.ServeError(codeErr, code)
 	}
 
 	var results []string
@@ -90,7 +92,8 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) {
 		baseID, found := strings.CutPrefix(route.ID, "MTA NYCT_")
 
 		if !found {
-			http.Error(w, "Missing agency prefix: MTA NYCT_", http.StatusInternalServerError)
+			prefixErr := errors.New("Missing agency prefix: MTA NYCT_")
+			return apperr.ServeError(prefixErr, http.StatusInternalServerError)
 		}
 
 		if strings.Contains(strings.ToLower(baseID), strings.ToLower(routeQuery)) {
@@ -102,8 +105,10 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := searchResultsHTML.Execute(w, results); err != nil {
-		http.Error(w, "Unable to render template", http.StatusInternalServerError)
+		return apperr.ServeError(err, http.StatusInternalServerError)
 	}
+
+	return nil
 }
 
 func main() {
@@ -119,7 +124,7 @@ func main() {
 
 	rootHandler := http.StripPrefix("/app/", http.FileServer(http.Dir("./templates")))
 	mux.Handle("/app/", rootHandler)
-	mux.HandleFunc("POST /search", cfg.searchHandler)
+	mux.HandleFunc("POST /search", apperr.WithErrors(cfg.searchHandler))
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.port,
