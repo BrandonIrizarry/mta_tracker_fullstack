@@ -1,6 +1,7 @@
 package apperr
 
 import (
+	"log/slog"
 	"net/http"
 )
 
@@ -15,7 +16,11 @@ func WithErrors(fn func(http.ResponseWriter, *http.Request) *StatusError) http.H
 
 		if serr != nil {
 			http.Error(w, serr.Error(), serr.code)
+			slog.Error("Error serving request", "request", r, "error", serr)
+			return
 		}
+
+		slog.Info("Request served successfully", "request", r)
 	}
 }
 
