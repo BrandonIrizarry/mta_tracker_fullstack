@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/availableRoutes"
 	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/geturl"
 	"github.com/joho/godotenv"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var searchResultsHTML = template.Must(template.New("results").Parse(`
@@ -128,6 +130,23 @@ func main() {
 
 	if err := cfg.init(); err != nil {
 		log.Fatal(err)
+	}
+
+	databaseFilename := os.Getenv("GOOSE_DBSTRING")
+
+	if databaseFilename == "" {
+		log.Fatal("Failed to open database connection: missing GOOSE_DBSTRING")
+	}
+
+	db, err := sql.Open("sqlite3", databaseFilename)
+
+	if err != nil {
+		log.Fatalf("Failed to open connection to database file '%s'", databaseFilename)
+	}
+
+	// Enable SQLite foreign keys.
+	if _, err := db.Exec("PRAGMA foreign_keys=ON;"); err != nil {
+		log.Fatal("Failed to enable SQLite foreign keys")
 	}
 
 	mux := http.NewServeMux()

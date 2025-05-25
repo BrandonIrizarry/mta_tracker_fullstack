@@ -1,3 +1,4 @@
 /mta_tracker_fullstack
 .env
 *.org
+*.db
