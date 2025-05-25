@@ -54,43 +54,42 @@ func (cfg *config) init() error {
 
 var routesInfo availableRoutes.AvailableRoutes
 
-func (cfg config) getRoutes(w http.ResponseWriter, r *http.Request) *apperr.StatusError {
+func (cfg config) getRoutes(w http.ResponseWriter, r *http.Request) (error, int) {
 	routesResponse, callErr := geturl.Call(routesForAgencyURL, map[string]string{
 		"key": cfg.apiKey,
 	})
 
 	if callErr != nil {
-		return apperr.ServeError(callErr, http.StatusInternalServerError)
+		return fmt.Errorf("Failed to fetch routes: %w", callErr), http.StatusInternalServerError
 	}
 
 	if err := json.Unmarshal(routesResponse, &routesInfo); err != nil {
-		return apperr.ServeError(err, http.StatusInternalServerError)
+		return fmt.Errorf("Failed to unmarshal routes response: %w", err), http.StatusInternalServerError
 	}
 
 	if code := routesInfo.Code; code != 200 {
-		codeErr := fmt.Errorf("Routes info reports non-200 code: %d", code)
-		return apperr.ServeError(codeErr, code)
+		return fmt.Errorf("Routes info reports non-200 code: %d", code), http.StatusInternalServerError
 	}
 
-	return nil
+	return nil, 0
 }
 
-func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) *apperr.StatusError {
+func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) (error, int) {
 	// Test whether routesInfo is empty (not initialized) by
 	// checking for a zero-valued Version
 	if routesInfo.Version == 0 {
-		return apperr.ServeError(errors.New("Routes not initialized"), http.StatusInternalServerError)
+		return errors.New("Routes not initialized"), http.StatusInternalServerError
 	}
 
 	routeQuery := r.FormValue("search")
 
 	if routeQuery == "" {
 		w.WriteHeader(http.StatusOK)
-		return nil
+		return nil, 0
 	}
 
 	if err := r.ParseForm(); err != nil {
-		return apperr.ServeError(err, http.StatusInternalServerError)
+		return fmt.Errorf("Failed to parse form: %w", err), http.StatusInternalServerError
 	}
 
 	var results []string
@@ -102,8 +101,7 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) *apperr.
 		baseID, found := strings.CutPrefix(route.ID, "MTA NYCT_")
 
 		if !found {
-			prefixErr := errors.New("Missing agency prefix: MTA NYCT_")
-			return apperr.ServeError(prefixErr, http.StatusInternalServerError)
+			return errors.New("Missing agency prefix: MTA NYCT_"), http.StatusInternalServerError
 		}
 
 		if strings.Contains(strings.ToLower(baseID), strings.ToLower(routeQuery)) {
@@ -117,10 +115,10 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) *apperr.
 	w.Header().Set("Content-Type", "text/html")
 
 	if err := searchResultsHTML.Execute(w, results); err != nil {
-		return apperr.ServeError(err, http.StatusInternalServerError)
+		return fmt.Errorf("Failed to write results to HTML: %w", err), http.StatusInternalServerError
 	}
 
-	return nil
+	return nil, 0
 }
 
 func main() {

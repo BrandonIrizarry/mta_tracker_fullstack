@@ -1,32 +1,21 @@
 package apperr
 
 import (
-	"log/slog"
+	"log"
 	"net/http"
 )
 
-type StatusError struct {
-	error
-	code int
-}
-
-func WithErrors(fn func(http.ResponseWriter, *http.Request) *StatusError) http.HandlerFunc {
+func WithErrors(fn func(http.ResponseWriter, *http.Request) (error, int)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		serr := fn(w, r)
+		err, code := fn(w, r)
 
-		if serr != nil {
-			http.Error(w, serr.Error(), serr.code)
-			slog.Error("Error serving request", "error", serr)
+		if err != nil {
+			http.Error(w, "Oops, something went wrong", code)
+
+			log.Printf("Error serving request: %v", err)
 			return
 		}
 
-		slog.Info("Request served successfully")
-	}
-}
-
-func ServeError(err error, code int) *StatusError {
-	return &StatusError{
-		error: err,
-		code:  code,
+		log.Printf("%s %s: succeeded", r.Method, r.URL)
 	}
 }
