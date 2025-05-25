@@ -52,7 +52,36 @@ func (cfg *config) init() error {
 	return nil
 }
 
+var routesInfo availableRoutes.AvailableRoutes
+
+func (cfg config) getRoutes(w http.ResponseWriter, r *http.Request) *apperr.StatusError {
+	routesResponse, callErr := geturl.Call(routesForAgencyURL, map[string]string{
+		"key": cfg.apiKey,
+	})
+
+	if callErr != nil {
+		return apperr.ServeError(callErr, http.StatusInternalServerError)
+	}
+
+	if err := json.Unmarshal(routesResponse, &routesInfo); err != nil {
+		return apperr.ServeError(err, http.StatusInternalServerError)
+	}
+
+	if code := routesInfo.Code; code != 200 {
+		codeErr := fmt.Errorf("Routes info reports non-200 code: %d", code)
+		return apperr.ServeError(codeErr, code)
+	}
+
+	return nil
+}
+
 func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) *apperr.StatusError {
+	// Test whether routesInfo is empty (not initialized) by
+	// checking for a zero-valued Version
+	if routesInfo.Version == 0 {
+		return apperr.ServeError(errors.New("Routes not initialized"), http.StatusInternalServerError)
+	}
+
 	routeQuery := r.FormValue("search")
 
 	if routeQuery == "" {
@@ -62,25 +91,6 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) *apperr.
 
 	if err := r.ParseForm(); err != nil {
 		return apperr.ServeError(err, http.StatusInternalServerError)
-	}
-
-	jsonBytes, callErr := geturl.Call(routesForAgencyURL, map[string]string{
-		"key": cfg.apiKey,
-	})
-
-	if callErr != nil {
-		return apperr.ServeError(callErr, http.StatusInternalServerError)
-	}
-
-	var routesInfo availableRoutes.AvailableRoutes
-
-	if err := json.Unmarshal(jsonBytes, &routesInfo); err != nil {
-		return apperr.ServeError(err, http.StatusInternalServerError)
-	}
-
-	if code := routesInfo.Code; code != 200 {
-		codeErr := fmt.Errorf("Routes info reports non-200 code: %d", code)
-		return apperr.ServeError(codeErr, code)
 	}
 
 	var results []string
@@ -104,6 +114,8 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) *apperr.
 		}
 	}
 
+	w.Header().Set("Content-Type", "text/html")
+
 	if err := searchResultsHTML.Execute(w, results); err != nil {
 		return apperr.ServeError(err, http.StatusInternalServerError)
 	}
@@ -125,6 +137,7 @@ func main() {
 	rootHandler := http.StripPrefix("/app/", http.FileServer(http.Dir("./templates")))
 	mux.Handle("/app/", rootHandler)
 	mux.HandleFunc("POST /search", apperr.WithErrors(cfg.searchHandler))
+	mux.HandleFunc("GET /routes", apperr.WithErrors(cfg.getRoutes))
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.port,
