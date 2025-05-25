@@ -7,10 +7,7 @@
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
   <style>
     .htmx-indicator {
-      display: none;
-    }
-    .htmx-request .htmx-indicator {
-      display: inline;
+        font-style: italic;
     }
   </style>
 </head>
@@ -20,7 +17,7 @@
   <h3>
     Search Routes
     <span class="htmx-indicator">
-      <img src="./images/bars.svg" alt="Loading..."/> Searching...
+      Loading all routes...
     </span>
   </h3>
 
@@ -29,7 +26,6 @@
          hx-post="/search"
          hx-trigger="input changed delay:250ms, keyup[key=='Enter']"
          hx-target="#search-results"
-         hx-indicator=".htmx-indicator"
          hx-swap="innerHTML">
 
   <table class="table">
