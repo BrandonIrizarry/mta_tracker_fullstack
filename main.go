@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/apperr"
 	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/availableRoutes"
+	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/database"
 	"github.com/BrandonIrizarry/mta_tracker_fullstack/internal/geturl"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
@@ -30,7 +32,8 @@ var searchResultsHTML = template.Must(template.New("results").Parse(`
 const routesForAgencyURL = "https://bustime.mta.info/api/where/routes-for-agency/MTA%20NYCT.json"
 
 type config struct {
-	apiKey string
+	apiKey    string
+	dbQueries *database.Queries
 }
 
 func (cfg *config) init() error {
@@ -45,9 +48,21 @@ func (cfg *config) init() error {
 	return nil
 }
 
-var routesInfo availableRoutes.AvailableRoutes
-
+// getRoutes initializes the global route table with general
+// information about every available bus route within the MTA.
 func (cfg config) getRoutes(w http.ResponseWriter, r *http.Request) (error, int) {
+	yes, err := cfg.dbQueries.TestRouteTablePopulated(context.Background())
+
+	if err != nil {
+		return fmt.Errorf("sqlc query failed (TestRouteTablePopulated): %w", err), http.StatusInternalServerError
+	}
+
+	if yes == 1 {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprint(w, "Global route table is already populated")
+		return nil, 0
+	}
+
 	routesResponse, callErr := geturl.Call(routesForAgencyURL, map[string]string{
 		"key": cfg.apiKey,
 	})
@@ -55,6 +70,8 @@ func (cfg config) getRoutes(w http.ResponseWriter, r *http.Request) (error, int)
 	if callErr != nil {
 		return fmt.Errorf("Failed to fetch routes: %w", callErr), http.StatusInternalServerError
 	}
+
+	var routesInfo availableRoutes.AvailableRoutes
 
 	if err := json.Unmarshal(routesResponse, &routesInfo); err != nil {
 		return fmt.Errorf("Failed to unmarshal routes response: %w", err), http.StatusInternalServerError
@@ -64,16 +81,32 @@ func (cfg config) getRoutes(w http.ResponseWriter, r *http.Request) (error, int)
 		return fmt.Errorf("Routes info reports non-200 code: %d", code), http.StatusInternalServerError
 	}
 
+	log.Println(routesInfo.Data.List)
+
+	for _, route := range routesInfo.Data.List {
+		var sbsFlag bool
+
+		if strings.HasSuffix(route.ShortName, "-SBS") {
+			sbsFlag = true
+		}
+
+		params := database.AddRouteParams{
+			ID:               route.ID,
+			LongName:         route.LongName,
+			ShortName:        route.ShortName,
+			Description:      route.Description,
+			SelectBusService: sbsFlag,
+		}
+
+		if err := cfg.dbQueries.AddRoute(context.Background(), params); err != nil {
+			return fmt.Errorf("Failed to add route: %v, %w", route, err), http.StatusInternalServerError
+		}
+	}
+
 	return nil, 0
 }
 
 func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) (error, int) {
-	// Test whether routesInfo is empty (not initialized) by
-	// checking for a zero-valued Version
-	if routesInfo.Version == 0 {
-		return errors.New("Routes not initialized"), http.StatusInternalServerError
-	}
-
 	routeQuery := r.FormValue("search")
 
 	if routeQuery == "" {
@@ -87,7 +120,13 @@ func (cfg config) searchHandler(w http.ResponseWriter, r *http.Request) (error, 
 
 	var results []string
 
-	for _, route := range routesInfo.Data.List {
+	routes, err := cfg.dbQueries.GetAllRoutes(context.Background())
+
+	if err != nil {
+		return fmt.Errorf("Failed to fetch global route info: %w", err), http.StatusInternalServerError
+	}
+
+	for _, route := range routes {
 		// FIXME: The agency prefix is hardcoded here. If we
 		// ever expand this to include subway, PATH, other
 		// kinds of buses etc., we would to change this.
@@ -139,6 +178,9 @@ func main() {
 	if _, err := db.Exec("PRAGMA foreign_keys=ON;"); err != nil {
 		log.Fatal("Failed to enable SQLite foreign keys")
 	}
+
+	// Add SQLC querying capabilities to the config struct.
+	cfg.dbQueries = database.New(db)
 
 	mux := http.NewServeMux()
 
