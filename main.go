@@ -31,7 +31,6 @@ const routesForAgencyURL = "https://bustime.mta.info/api/where/routes-for-agency
 
 type config struct {
 	apiKey string
-	port   string
 }
 
 func (cfg *config) init() error {
@@ -42,14 +41,6 @@ func (cfg *config) init() error {
 	}
 
 	cfg.apiKey = apiKey
-
-	port := os.Getenv("PORT")
-
-	if port == "" {
-		return errors.New("Missing port configuration (PORT)")
-	}
-
-	cfg.port = port
 
 	return nil
 }
@@ -156,8 +147,14 @@ func main() {
 	mux.HandleFunc("POST /search", apperr.WithErrors(cfg.searchHandler))
 	mux.HandleFunc("GET /routes", apperr.WithErrors(cfg.getRoutes))
 
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		log.Fatal("Missing port configuration (PORT)")
+	}
+
 	srv := &http.Server{
-		Addr:    ":" + cfg.port,
+		Addr:    ":" + port,
 		Handler: mux,
 	}
 
